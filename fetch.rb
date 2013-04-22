@@ -45,6 +45,13 @@ end
 ### functions
 
 # Load in the YAML configuration file, check for errors, and return as hash 'cfg'
+#
+# Ex config.yaml:
+#---
+#login:
+#   username: xxx
+#   pasword: xxx
+#
 def load_config
   cfg = File.open(CONFIG)  { |yf| YAML::load( yf ) } if File.exists?(CONFIG)
   # => Ensure loaded data is a hash. ie: YAML load was OK
