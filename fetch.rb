@@ -11,6 +11,7 @@ require 'optparse'
 require 'ostruct'
 require 'logger'
 require 'nokogiri'
+require 'yaml'
 
 ### constants
 
@@ -432,7 +433,7 @@ cfg = load_config
 @password = cfg['login']['password']
 
 # check if grep exist
-@grep_exist = system('which grep')
+@grep_exist = system('which grep 2>&1 1>/dev/null')
 
 @log_dir = File.join(@options[:output], 'log')
 @data_dir = File.join(@options[:output], 'data')
@@ -464,7 +465,7 @@ end
 http,cookie = login
 
 # read the PID list
-data = CSV.read(@options[:source], {encoding: "ISO-8859-1"})
+data = CSV.read(@options[:source], :headers => true, :encoding => "UTF-8")
 
 case @options[:type]
 when :id then
