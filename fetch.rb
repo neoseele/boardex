@@ -29,15 +29,15 @@ POSITION_HEADER = 'Id,Name,Organisation,Role,Role Description,Start Date,End Dat
 
 class Position
   attr_accessor :id, :name, :org_name, :role, :role_description, :start_data, :end_data,  :type
-  
+
   def initialize(type)
     @type = type
   end
-  
+
   def is_brd?
     @role =~ /\(Brd - /
   end
-  
+
   def to_array
     [@id, @name, @org_name, @role, @role_description, @start_data, @end_data, @type]
   end
@@ -81,7 +81,7 @@ def view_response(resp)
 end
 
 def login
-  
+
   url = URI.parse('https://www.boardex.com')
   http = Net::HTTP.new url.host, url.port
   http.verify_mode = OpenSSL::SSL::VERIFY_NONE
@@ -94,7 +94,7 @@ def login
   eventvalidatoin = ''
   previouspage = ''
   viewstate = ''
-  
+
   resp.body.each_line do |line|
     eventvalidatoin = /value=\"(.*)\"/.match(line)[1] if line =~ /__EVENTVALIDATION/
     previouspage = /value=\"(.*)\"/.match(line)[1] if line =~ /__PREVIOUSPAGE/
@@ -122,17 +122,17 @@ def login
   view_response resp
 
   cookie = resp.response['set-cookie'].split('; ')[0]
-  
+
   puts "* Logged in as #{@username}"
   @log.debug("logged in as #{@username}")
-  
+
   return http, cookie
 end
 
 def search(name, http, cookie)
   @log.debug("searching #{name}")
   puts '* Search Person: ' + name
-  
+
   headers = {
     'User-Agent' => USERAGENT,
     'Cookie' => cookie
@@ -140,16 +140,16 @@ def search(name, http, cookie)
   path = SEARCH_PATH + URI.encode_www_form_component(name)
   resp = http.get2(path, headers)
   view_response resp
-  
+
   case resp
   when Net::HTTPSuccess then
-    
+
     log_to_exception(name)
     @log.warn(name + ' matches none or more than one records')
-    
+
   when Net::HTTPRedirection then
     id = /dir_id=(\d+)$/.match(resp['location'])[1]
-    
+
     if id != nil and id =~ /\d+/
       @log.info("#{name} found (#{id})")
       return id
@@ -157,14 +157,14 @@ def search(name, http, cookie)
   else
     @log.error("http error occured: #{resp.code}")
   end
-  
+
   return nil
 end
 
 def fetch_details(id, http, cookie)
   @log.debug("fetching id #{id}")
   puts '* Fetching Details for PID: ' + id
-  
+
   headers = {
     'User-Agent' => USERAGENT,
     'Cookie' => cookie
@@ -173,23 +173,23 @@ def fetch_details(id, http, cookie)
   path = DETAIL_PATH + id
   resp = http.get2(path, headers)
   view_response resp
-  
+
   resp
 end
 
 def fetch_connections(id, name, http, cookie)
   @log.debug("fetching connection data")
   puts '* Fetching Conncetions'
-  
+
   headers = {
     'User-Agent' => USERAGENT,
     'Cookie' => cookie
   }
-  
+
   path = CONNECTION_PATH
   resp = http.get2(path, headers)
   view_response resp
-  
+
   viewstate = ''
   resp.body.each_line do |line|
     if line =~ /__VIEWSTATE/
@@ -197,7 +197,7 @@ def fetch_connections(id, name, http, cookie)
       break
     end
   end
-  
+
   data = "__EVENTARGUMENT=&" +
     "__EVENTTARGET=&" +
     "__LASTFOCUS=&" +
@@ -221,44 +221,44 @@ def fetch_connections(id, name, http, cookie)
     'Referer' => 'https://www.boardex.com/director/associations/default.aspx?menuCat=1&pCategory=6&menuGrp=net',
     'Content-Type' => 'application/x-www-form-urlencoded'
   }
-  
+
   resp = http.post(path, data, headers)
 
   puts '* Downloading CSV'
   view_response resp
-  
+
+  output_file = File.join(@data_dir, "#{id}_connections.csv")
+
   if resp.is_a? Net::HTTPSuccess
     body_ary = resp.body.split("\r\n")
-    
+
     full_name = body_ary.shift
-    
+
     header_ary = CONNECTION_HEADER.split(',')
-    
+
     output = [['Person of Interest'] + header_ary]
 
     body_ary.each do |line|
       line_ary = line.strip.parse_csv
-      
+
       next if line_ary.nil?  # next if the line is empty
       next if line_ary.join(',') == CONNECTION_HEADER  # next if the line is the header
       next if line_ary.length != header_ary.length  # next if the line not matching the header
-      
+
       output << [full_name] + line_ary
     end
 
-    output_file = File.join(@data_dir, "#{id}_connections.csv")
-    
     ## write to file
     write_to_csv(output, output_file)
-    
+
     ## log to success 
     log_to_success(id, name)
-    
+
     @log.info("#{File.basename(output_file)} download success")
   else
     @log.error("#{File.basename(output_file)} download failed: (#{resp.code})")
   end
-    
+
 end
 
 def write_to_csv(output, output_file)
@@ -273,68 +273,68 @@ end
 
 def extract_positions(id, name, resp)
   @log.debug("extracting position data")
-  
+
   doc = Nokogiri::HTML(resp.body)
-  
+
   current_div_id = '_ctl0__ctl0_ContentPlaceholder_StandardContentPlaceholder_currentPositionsGrid_gridView'
   past_div_id = '_ctl0__ctl0_ContentPlaceholder_StandardContentPlaceholder_pastPositionsGrid_gridView'
-  
+
   current_positions = doc.css("#"+current_div_id)
   past_positions  = doc.css("#"+past_div_id)
-  
+
   positions = []
-  
+
   unless current_positions.nil?
     current_positions.css('tr').each do |tr| 
       next unless tr.css('th').empty?
-      
+
       data = tr.css('td').collect { |obj| obj.content.strip }
-      
+
       position = Position.new('current')
       position.start_data = data[0]
       position.org_name = data[1]
       position.role = data[2]
       position.role_description = data[3]
-      
+
       positions << position if position.is_brd?
     end
   end
-  
+
   unless past_positions.nil?
     past_positions.css('tr').each do |tr|
       next unless tr.css('th').empty?
 
       data = tr.css('td').collect { |obj| obj.content.strip }
-      
+
       position = Position.new('past')
       position.start_data = data[0]
       position.end_data = data[1]
       position.org_name = data[2]
       position.role = data[3]
       position.role_description = data[4]
-      
+
       positions << position if position.is_brd?
     end
   end
-  
+
   if positions.empty?
     @log.warn("No position data found for person: #{name} (#{id})")
     ## log to success 
     log_to_exception(name)
   else
     output = [POSITION_HEADER.split(',')]
-    
+
     positions.each do |p|
       p.id = id
       p.name = name
       output << p.to_array
     end
-  
+
     output_file = File.join(@data_dir, "#{id}_positions.csv")
-  
+
     ## write to file
     write_to_csv(output, output_file)
-    
+
     ## log to success 
     log_to_success(id, name)
     @log.info("#{File.basename(output_file)} saved")
@@ -374,7 +374,6 @@ def id_exist?(id, file)
       end
     end
   end
-  
   false
 end
 
@@ -476,7 +475,7 @@ when :id then
 	
     id = search(name, http, cookie)
     next unless id
-    
+
     ## log to success 
     log_to_success(id, name)
   end
@@ -485,14 +484,14 @@ when :connection then
   # column0 => name
   # column1 => id
   data.each do |p|
-  
+
     name = p[0].strip.encode('UTF-8')
     id = p[1]
 
     #  puts name
     #  puts name.encoding
     #  puts name.length
-  
+
     if @options[:by_id] and id
       next if id_exist?(id, @success_log)
       fetch_details(id, http, cookie)
@@ -503,7 +502,7 @@ when :connection then
 	
       id = search(name, http, cookie)
       next unless id
-    
+
       fetch_details(id, http, cookie)
       fetch_connections(id, name, http, cookie) 
     end
@@ -512,11 +511,11 @@ when :position then
   data.each do |p|
     name = p[0].strip.encode('UTF-8')
     id = p[1]
-    
+
     if @options[:by_id] and id
       next if id_exist?(id, @success_log)
       next if name_exist?(name, @exception_log)
-      
+
       resp = fetch_details(id, http, cookie)
       extract_positions(id, name, resp)
     else
@@ -524,5 +523,3 @@ when :position then
     end
   end
 end
-
-
