@@ -86,6 +86,7 @@ def login
   http = Net::HTTP.new url.host, url.port
   http.verify_mode = OpenSSL::SSL::VERIFY_NONE
   http.use_ssl = true
+  http.read_timeout = 60 # seconds
   path = '/Login.aspx'
 
   resp = http.get2(path, {'User-Agent' => USERAGENT})
@@ -118,6 +119,7 @@ def login
   }
 
   resp = http.post(path, data, headers)
+
   # Output on the screen -> we should get either a 302 redirect (after a successful login) or an error page
   view_response resp
 
@@ -139,14 +141,13 @@ def search(name, http, cookie)
   }
   path = SEARCH_PATH + URI.encode_www_form_component(name)
   resp = http.get2(path, headers)
+
   view_response resp
 
   case resp
   when Net::HTTPSuccess then
-
     log_to_exception(name)
     @log.warn(name + ' matches none or more than one records')
-
   when Net::HTTPRedirection then
     id = /dir_id=(\d+)$/.match(resp['location'])[1]
 
@@ -172,8 +173,8 @@ def fetch_details(id, http, cookie)
 
   path = DETAIL_PATH + id
   resp = http.get2(path, headers)
-  view_response resp
 
+  view_response resp
   resp
 end
 
@@ -188,6 +189,7 @@ def fetch_connections(id, name, http, cookie)
 
   path = CONNECTION_PATH
   resp = http.get2(path, headers)
+
   view_response resp
 
   viewstate = ''
@@ -339,7 +341,6 @@ def extract_positions(id, name, resp)
     log_to_success(id, name)
     @log.info("#{File.basename(output_file)} saved")
   end
-
 end
 
 def name_exist?(name, file)
@@ -356,7 +357,6 @@ def name_exist?(name, file)
       end
     end
   end
-  
   false
 end
 
@@ -461,7 +461,14 @@ end
 @log.level = Logger::INFO
 
 # login to BoardEx
-http,cookie = login
+begin
+  http,cookie = login
+rescue => msg
+  message = "login failed: ("+msg+")"
+  puts message
+  @log.error(message)
+  exit 1
+end
 
 # read the PID list
 data = CSV.read(@options[:source], :headers => true, :encoding => "UTF-8")
@@ -470,14 +477,17 @@ case @options[:type]
 when :id then
   data.each do |p|
     name = p[0].strip.encode('UTF-8')
-    next if name_exist?(name, @success_log)
-    next if name_exist?(name, @exception_log)
-	
-    id = search(name, http, cookie)
-    next unless id
+    begin
+      next if name_exist?(name, @success_log)
+      next if name_exist?(name, @exception_log)
 
-    ## log to success 
-    log_to_success(id, name)
+      id = search(name, http, cookie)
+
+      ## log to success
+      log_to_success(id, name) unless id
+    rescue => msg
+      @log.error("something when wrong: ("+msg+")")
+    end
   end
 when :connection then
   # csv format:
@@ -492,34 +502,38 @@ when :connection then
     #  puts name.encoding
     #  puts name.length
 
-    if @options[:by_id] and id
-      next if id_exist?(id, @success_log)
-      fetch_details(id, http, cookie)
-      fetch_connections(id, name, http, cookie)
-    else
-      next if name_exist?(name, @success_log)
-      next if name_exist?(name, @exception_log)
-	
-      id = search(name, http, cookie)
-      next unless id
-
-      fetch_details(id, http, cookie)
-      fetch_connections(id, name, http, cookie) 
+    begin
+      if @options[:by_id] and id
+        next if id_exist?(id, @success_log)
+        fetch_details(id, http, cookie)
+        fetch_connections(id, name, http, cookie)
+      else
+        next if name_exist?(name, @success_log)
+        next if name_exist?(name, @exception_log)
+        id = search(name, http, cookie)
+        next unless id
+        fetch_details(id, http, cookie)
+        fetch_connections(id, name, http, cookie) 
+      end
+    rescue => msg
+      @log.error("something when wrong: ("+msg+")")
     end
   end
 when :position then
   data.each do |p|
     name = p[0].strip.encode('UTF-8')
     id = p[1]
-
-    if @options[:by_id] and id
-      next if id_exist?(id, @success_log)
-      next if name_exist?(name, @exception_log)
-
-      resp = fetch_details(id, http, cookie)
-      extract_positions(id, name, resp)
-    else
-      puts 'Position data can only be fetched by ID'
+    begin
+      if @options[:by_id] and id
+        next if id_exist?(id, @success_log)
+        next if name_exist?(name, @exception_log)
+        resp = fetch_details(id, http, cookie)
+        extract_positions(id, name, resp)
+      else
+        puts 'Position data can only be fetched by ID'
+      end
+    rescue => msg
+      @log.error("something when wrong: ("+msg+")")
     end
   end
 end
