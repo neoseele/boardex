@@ -463,8 +463,8 @@ end
 # login to BoardEx
 begin
   http,cookie = login
-rescue => msg
-  message = "login failed: ("+msg+")"
+rescue => e
+  message = "login failed: ("+e.message+")"
   puts message
   @log.error(message)
   exit 1
@@ -485,8 +485,8 @@ when :id then
 
       ## log to success
       log_to_success(id, name) unless id
-    rescue => msg
-      @log.error("something when wrong: ("+msg+")")
+    rescue => e
+      @log.error("something when wrong: ("+e.message+")")
     end
   end
 when :connection then
@@ -515,8 +515,8 @@ when :connection then
         fetch_details(id, http, cookie)
         fetch_connections(id, name, http, cookie) 
       end
-    rescue => msg
-      @log.error("something when wrong: ("+msg+")")
+    rescue => e
+      @log.error("something when wrong: ("+e.message+")")
     end
   end
 when :position then
@@ -532,8 +532,8 @@ when :position then
       else
         puts 'Position data can only be fetched by ID'
       end
-    rescue => msg
-      @log.error("something when wrong: ("+msg+")")
+    rescue => e
+      @log.error("something when wrong: ("+e.message+")")
     end
   end
 end
