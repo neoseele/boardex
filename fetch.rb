@@ -108,7 +108,7 @@ def login
     "__PREVIOUSPAGE=#{ERB::Util.url_encode(previouspage)}&" +
     "__VIEWSTATE=#{ERB::Util.url_encode(viewstate)}&" +
     "_txtLoginName=#{@username}&" +
-    "_txtPassword=#{@password}&" + 
+    "_txtPassword=#{@password}&" +
     "_btnLogin=Log%20in"
 
   headers = {
@@ -195,7 +195,7 @@ def fetch_connections(id, name, http, cookie)
   viewstate = ''
   resp.body.each_line do |line|
     if line =~ /__VIEWSTATE/
-      viewstate = /value=\"(.*)\"/.match(line)[1] 
+      viewstate = /value=\"(.*)\"/.match(line)[1]
       break
     end
   end
@@ -253,7 +253,7 @@ def fetch_connections(id, name, http, cookie)
     ## write to file
     write_to_csv(output, output_file)
 
-    ## log to success 
+    ## log to success
     log_to_success(id, name)
 
     @log.info("#{File.basename(output_file)} download success")
@@ -287,7 +287,7 @@ def extract_positions(id, name, resp)
   positions = []
 
   unless current_positions.nil?
-    current_positions.css('tr').each do |tr| 
+    current_positions.css('tr').each do |tr|
       next unless tr.css('th').empty?
 
       data = tr.css('td').collect { |obj| obj.content.strip }
@@ -350,9 +350,9 @@ def name_exist?(name, file)
       return true
     end
   else
-    CSV.read(file, {encoding: "UTF-8"}).each do |l| 
+    CSV.read(file, {encoding: "UTF-8"}).each do |l|
       if l[0].eql? name
-        puts name + ' found in ' + file 
+        puts name + ' found in ' + file
         return true
       end
     end
@@ -449,11 +449,11 @@ unless File.exist?(@success_log)
 end
 
 unless File.exist?(@exception_log)
-  File.open(@exception_log, 'w') {|f| f.close()} 
+  File.open(@exception_log, 'w') {|f| f.close()}
 end
 
 unless File.exist?(@run_log)
-  File.open(@run_log, 'w') {|f| f.close()} 
+  File.open(@run_log, 'w') {|f| f.close()}
 end
 
 # init log
@@ -486,7 +486,7 @@ when :id then
       ## log to success
       log_to_success(id, name) unless id
     rescue => e
-      @log.error("something when wrong: ("+e.message+")")
+      @log.error("something when wrong prcessing id:#{id} ("+e.message+")")
     end
   end
 when :connection then
@@ -513,10 +513,10 @@ when :connection then
         id = search(name, http, cookie)
         next unless id
         fetch_details(id, http, cookie)
-        fetch_connections(id, name, http, cookie) 
+        fetch_connections(id, name, http, cookie)
       end
     rescue => e
-      @log.error("something when wrong: ("+e.message+")")
+      @log.error("something when wrong processing id:#{id} ("+e.message+")")
     end
   end
 when :position then
@@ -533,7 +533,7 @@ when :position then
         puts 'Position data can only be fetched by ID'
       end
     rescue => e
-      @log.error("something when wrong: ("+e.message+")")
+      @log.error("something when wrong processing id:#{id} ("+e.message+")")
     end
   end
 end
