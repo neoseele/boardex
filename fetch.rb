@@ -487,6 +487,7 @@ when :id then
       log_to_success(id, name) unless id
     rescue => e
       @log.error("something when wrong prcessing id:#{id} ("+e.message+")")
+      @log.error(e.backtrace)
     end
   end
 when :connection then
@@ -517,6 +518,7 @@ when :connection then
       end
     rescue => e
       @log.error("something when wrong processing id:#{id} ("+e.message+")")
+      @log.error(e.backtrace)
     end
   end
 when :position then
@@ -534,6 +536,7 @@ when :position then
       end
     rescue => e
       @log.error("something when wrong processing id:#{id} ("+e.message+")")
+      @log.error(e.backtrace)
     end
   end
 end
