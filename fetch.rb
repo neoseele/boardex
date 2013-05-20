@@ -488,6 +488,7 @@ when :id then
     rescue => e
       @log.error("something when wrong prcessing id:#{id} ("+e.message+")")
       @log.error(e.backtrace)
+      next
     end
   end
 when :connection then
@@ -519,6 +520,7 @@ when :connection then
     rescue => e
       @log.error("something when wrong processing id:#{id} ("+e.message+")")
       @log.error(e.backtrace)
+      next
     end
   end
 when :position then
@@ -537,6 +539,7 @@ when :position then
     rescue => e
       @log.error("something when wrong processing id:#{id} ("+e.message+")")
       @log.error(e.backtrace)
+      next
     end
   end
 end
