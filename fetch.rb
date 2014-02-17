@@ -43,6 +43,13 @@ class Position
   end
 end
 
+class Education
+  attr_accessor :id, :name, :date, :institute, :qualification
+  def to_array
+    [@id, @name, @date, @institute, @qualification]
+  end
+end
+
 ### functions
 
 # Load in the YAML configuration file, check for errors, and return as hash 'cfg'
@@ -122,26 +129,17 @@ def login
 
   # Output on the screen -> we should get either a 302 redirect (after a successful login) or an error page
   view_response resp
-
   cookie = resp.response['set-cookie'].split('; ')[0]
-
   puts "* Logged in as #{@username}"
-  @log.debug("logged in as #{@username}")
-
   return http, cookie
 end
 
 def search(name, http, cookie)
-  @log.debug("searching #{name}")
   puts '* Search Person: ' + name
 
-  headers = {
-    'User-Agent' => USERAGENT,
-    'Cookie' => cookie
-  }
+  headers = {'User-Agent' => USERAGENT,'Cookie' => cookie}
   path = SEARCH_PATH + URI.encode_www_form_component(name)
   resp = http.get2(path, headers)
-
   view_response resp
 
   case resp
@@ -163,33 +161,21 @@ def search(name, http, cookie)
 end
 
 def fetch_details(id, http, cookie)
-  @log.debug("fetching id #{id}")
   puts '* Fetching Details for PID: ' + id
 
-  headers = {
-    'User-Agent' => USERAGENT,
-    'Cookie' => cookie
-  }
-
+  headers = {'User-Agent' => USERAGENT,'Cookie' => cookie}
   path = DETAIL_PATH + id
   resp = http.get2(path, headers)
-
   view_response resp
   resp
 end
 
 def fetch_connections(id, name, http, cookie)
-  @log.debug("fetching connection data")
   puts '* Fetching Conncetions'
 
-  headers = {
-    'User-Agent' => USERAGENT,
-    'Cookie' => cookie
-  }
-
+  headers = {'User-Agent' => USERAGENT,'Cookie' => cookie}
   path = CONNECTION_PATH
   resp = http.get2(path, headers)
-
   view_response resp
 
   viewstate = ''
@@ -343,6 +329,25 @@ def extract_positions(id, name, resp)
   end
 end
 
+def extract_education(id, name, resp)
+  doc = Nokogiri::HTML(resp.body)
+  e_doc = doc.css('#_ctl0__ctl0_ContentPlaceholder_StandardContentPlaceholder_educationGrid_educationGridView')
+
+  educations = []
+  unless e_doc.nil?
+    e_doc.css('tr').each do |tr|
+      next unless tr.css('th').empty?
+      data = tr.css('td').collect { |obj| obj.content.strip }
+      e = Education.new
+      e.date = data[0]
+      e.institute = data[1]
+      e.qualification = data[2]
+      educations << e
+    end
+  end
+  pp educations
+end
+
 def name_exist?(name, file)
   if @grep_exist
     if system('grep "' + name + '" ' + file + ' 1>/dev/null')
@@ -378,15 +383,11 @@ def id_exist?(id, file)
 end
 
 def log_to_exception(name)
-  CSV.open(@exception_log, 'ab') do |csv|
-    csv << [name]
-  end
+  CSV.open(@exception_log, 'ab') {|csv| csv << [name]}
 end
 
 def log_to_success(id, name)
-  CSV.open(@success_log, 'ab') do |csv|
-    csv << [name, id]
-  end
+  CSV.open(@success_log, 'ab') {|csv| csv << [name, id]}
 end
 
 def usage
@@ -406,7 +407,7 @@ end
 @opts.on("-o", "--output [DIRECTORY]", String, "(required) Output directory") do |o|
   @options[:output] = o
 end
-@opts.on("-f", "--fetch [TYPE]", [:id, :connection, :position], "(required) Fetch data type (id, connection, position)") do |t|
+@opts.on("-f", "--fetch [TYPE]", [:id, :connection, :position, :education], "(required) Fetch data type (id, connection, position, education)") do |t|
   @options[:type] = t
 end
 @opts.on("-i", "--by-id", "Fetch data by ID (the second column of source CSV)") do |i|
@@ -471,7 +472,7 @@ rescue => e
 end
 
 # read the PID list
-data = CSV.read(@options[:source], :headers => true, :encoding => "UTF-8")
+data = CSV.read(@options[:source], :headers => true, :encoding => "ISO-8859-1")
 
 case @options[:type]
 when :id then
@@ -480,9 +481,7 @@ when :id then
     begin
       next if name_exist?(name, @success_log)
       next if name_exist?(name, @exception_log)
-
       id = search(name, http, cookie)
-
       ## log to success
       log_to_success(id, name) unless id
     rescue => e
@@ -523,19 +522,21 @@ when :connection then
       next
     end
   end
-when :position then
+when :position, :education then
+  unless @options[:by_id]
+    puts 'option -i is required'
+    exit 1
+  end
+
   data.each do |p|
     name = p[0].strip.encode('UTF-8')
     id = p[1]
     begin
-      if @options[:by_id] and id
-        next if id_exist?(id, @success_log)
-        next if name_exist?(name, @exception_log)
-        resp = fetch_details(id, http, cookie)
-        extract_positions(id, name, resp)
-      else
-        puts 'Position data can only be fetched by ID'
-      end
+      next if id_exist?(id, @success_log)
+      next if name_exist?(name, @exception_log)
+      resp = fetch_details(id, http, cookie)
+      extract_positions(id, name, resp) if @options[:type] == :position
+      extract_education(id, name, resp) if @options[:type] == :education
     rescue => e
       @log.error("something when wrong processing id:#{id} ("+e.message+")")
       @log.error(e.backtrace)
