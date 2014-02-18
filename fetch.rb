@@ -24,6 +24,7 @@ CONNECTION_PATH = '/director/associations/default.aspx?menuCat=1&pCategory=6&men
 
 CONNECTION_HEADER = 'Individual,Organisation,Organisation Type,Current / Historic,Duration,Role of Root Individual,Overlap Start Date,Overlap End Date,Role of Connected Individual'
 POSITION_HEADER = 'Id,Name,Organisation,Role,Role Description,Start Date,End Date,Type'
+EDUCATION_HEADER = 'Id,Name,Date,Institute,Qualification'
 
 ### classes
 
@@ -345,7 +346,29 @@ def extract_education(id, name, resp)
       educations << e
     end
   end
-  pp educations
+
+  if educations.empty?
+    @log.warn("No education data found for person: #{name} (#{id})")
+    ## log to success
+    log_to_exception(name)
+  else
+    output = [EDUCATION_HEADER.split(',')]
+
+    educations.each do |e|
+      e.id = id
+      e.name = name
+      output << e.to_array
+    end
+
+    output_file = File.join(@data_dir, "#{id}_educations.csv")
+
+    ## write to file
+    write_to_csv(output, output_file)
+
+    ## log to success
+    log_to_success(id, name)
+    @log.info("#{File.basename(output_file)} saved")
+  end
 end
 
 def name_exist?(name, file)
