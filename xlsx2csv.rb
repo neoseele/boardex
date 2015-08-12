@@ -41,8 +41,11 @@ Dir.glob(File.join(src_dir,'*.xlsx')) do |xlsx|
   CSV.open(csv_file, 'wb') do |csv|
     sheet.rows.each_with_index do |row, i|
       next if i == 0 # skip the first line
-      csv << row.values.map {|c| c.to_s.gsub(/(\*|\/|\')/,'')} if i == 1
-      csv << row.values.map {|c| c.to_s}
+      if i == 1
+        csv << row.values.map {|c| c.to_s.gsub(/(\*|\/|\')/,'')}
+      else
+        csv << row.values.map {|c| c.to_s}
+      end
     end
   end
 end
