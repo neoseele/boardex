@@ -43,12 +43,7 @@ Dir.glob(File.join(src_dir,'*.xlsx')) do |xlsx|
       next if i == 0 # skip the first line
       if i == 1
         csv << row.values.map.with_index do |c,i|
-          header = c.to_s.downcase.gsub(/(\*|\'|\(|\))/,'').gsub(/(\W|\/)/,'_')
-          if [5,6,7].include? i
-            "c_#{header}"
-          else
-            header
-          end
+          header = c.to_s.downcase.gsub(/(\*|\'|\(|\))/,'').gsub(/(\W|\/)/,'_') + "_#{i}"
         end
       else
         csv << row.values.map {|c| c.to_s}
